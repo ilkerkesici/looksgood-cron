@@ -2,6 +2,8 @@ const LOOKSGOOD_DB = require("./db");
 const axios = require("axios");
 const { createPrompt } = require("./promt");
 const { DateTime } = require("luxon");
+const { getAnalyseCompletedMessage } = require("./notification/messages");
+const { sendNotification } = require("./notification/sendNotificaiton");
 
 const getImagesByUserId = (userId) =>
   LOOKSGOOD_DB("images").where("user", userId).orderBy("created_at", "desc");
@@ -119,6 +121,13 @@ const analyseRequest = async (request) => {
       status: "completed",
       updated_at: getCurrentUTCDate(),
     });
+
+    try {
+      const { headings, content } = getAnalyseCompletedMessage();
+      await sendNotification(headings, content, [request.user]);
+    } catch (e) {
+      console.log(e);
+    }
   } catch (e) {
     console.log(e);
     await updateRequest(requestId, {
