@@ -4,7 +4,7 @@ const { sendReminderIfRequired } = require("./src/looksGoodReminder");
 
 cron.schedule("*/1 * * * *", () => {
   // console.log("Analysing...");
-  // analyse();
+  analyse();
 });
 
-sendReminderIfRequired();
+// sendReminderIfRequired();
