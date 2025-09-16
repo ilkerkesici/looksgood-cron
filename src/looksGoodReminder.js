@@ -54,7 +54,6 @@ const getUsersLast24HourNotCheckedATask = async () => {
         .timezone || "UTC"; // "Europe/Istanbul"
 
     const userHour = DateTime.now().setZone(userTimeZone).hour;
-    console.log(userHour);
     if (userHour === NOTIFICATION_HOUR) {
       timeZonedUsers.push(user);
     }
