@@ -3,7 +3,8 @@ const createPrompt = (
   age,
   front_image_url,
   profile_image_url,
-  locale = "tr"
+  locale = "tr",
+  lastAnalyse = null
   // startDate = "2025-08-21",
   // endDate = "2025-09-22"
 ) => {
@@ -36,7 +37,6 @@ const createPrompt = (
             locale || "en"
           } (3–4 sentences, max 200, min 120 characters).\n\nExample response: ${exampleResponseForPrompt}`,
         },
-
         {
           type: "image_url",
           image_url: {
@@ -48,6 +48,17 @@ const createPrompt = (
           image_url: {
             url: profile_image_url,
           },
+        },
+      ],
+    },
+    {
+      role: "user",
+      content: [
+        {
+          type: "text",
+          text: lastAnalyse
+            ? `Bring the user's latest analysis here, but make the others (except overall and potential) different from the previous one. Do not bring them the same. You can say that based on the photo, they look slightly improved. User last analyse: ${lastAnalyse}`
+            : "There is no analyse for the user before",
         },
       ],
     },

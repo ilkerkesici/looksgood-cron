@@ -8,6 +8,20 @@ const { sendNotification } = require("./notification/sendNotificaiton");
 const getImagesByUserId = (userId) =>
   LOOKSGOOD_DB("images").where("user", userId).orderBy("created_at", "desc");
 
+const getImagesByRequestId = (requestId) =>
+  LOOKSGOOD_DB("requests")
+    .where("requests.id", requestId)
+    .join("images", "requests.channel", "=", "images.channel");
+
+const getLastCompletedRequestByUserFromLast = (userId) =>
+  LOOKSGOOD_DB("requests")
+    .where("user", userId)
+    .where("status", "completed")
+    .orderBy("created_at", "desc");
+
+const getAnalysisByRequestId = (requestId) =>
+  LOOKSGOOD_DB("face_analysis").where("request", requestId);
+
 const getProfileById = (id) => LOOKSGOOD_DB("profile").where("user", id);
 const updateRequest = (id, data) =>
   LOOKSGOOD_DB("requests").where("id", id).update(data);
@@ -38,7 +52,8 @@ const analyse = async () => {
 
 const analyseRequest = async (request) => {
   const requestId = request.id;
-  const images = await getImagesByUserId(request.user);
+  const userId = request.user;
+  const images = await getImagesByRequestId(requestId);
   const groupedImages = {};
   images.forEach((image) => {
     if (!groupedImages[image.channel]) {
@@ -52,13 +67,25 @@ const analyseRequest = async (request) => {
   const profileImage = usedImages.find((image) => image.type === "face_left");
   const user = await getProfileById(request.user);
 
+  const userRequests = await getLastCompletedRequestByUserFromLast(userId);
+
+  const lastRequest = userRequests[0];
+
+  let lastAnalyse = null;
+
+  if (lastRequest) {
+    const lastAnalyses = await getAnalysisByRequestId(lastRequest.id);
+    lastAnalyse = lastAnalyses[0] ? JSON.stringify(lastAnalyses[0]) : null;
+  }
+
   let gptResult = null;
   const prompt = createPrompt(
     user[0].gender,
     user[0].age,
     frontImage.image,
     profileImage.image,
-    request.locale
+    request.locale,
+    lastAnalyse
   );
 
   try {
