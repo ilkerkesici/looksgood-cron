@@ -1,9 +1,12 @@
 const LOOKSGOOD_DB = require("./db");
 const axios = require("axios");
-const { createPrompt } = require("./promt");
+const { createPrompt, createPromptForGemini } = require("./promt");
 const { DateTime } = require("luxon");
 const { getAnalyseCompletedMessage } = require("./notification/messages");
 const { sendNotification } = require("./notification/sendNotificaiton");
+const genaiModule = require("@google/genai");
+// SDK'nın yapısına bağlı olarak, objeyi doğru şekilde almanız gerekir.
+const GoogleGenAI = genaiModule.GoogleGenAI;
 
 const getImagesByUserId = (userId) =>
   LOOKSGOOD_DB("images").where("user", userId).orderBy("created_at", "desc");
@@ -50,6 +53,69 @@ const analyse = async () => {
   }
 };
 
+const analyseWithOpenAI = async (prompt) => {
+  let gptResult = null;
+  try {
+    const result = await axios.post(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        model: "gpt-4o",
+        messages: prompt,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.GPT_KEY}`,
+        },
+      }
+    );
+    for (let i = 0; i < result.data.choices.length; i++) {
+      let content = result.data.choices[i].message.content;
+      content = content.replaceAll("json", "");
+      content = content.replaceAll("```", "");
+      content = content.replaceAll("\n", "");
+      // content = content.replaceAll(" ", "")
+      const json = JSON.parse(content);
+      gptResult = json;
+    }
+    return gptResult;
+  } catch (e) {
+    console.log(e);
+    return null;
+  }
+};
+
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+const analyseWithGemini = async (promt) => {
+  try {
+    console.log("Data Send to Gemini");
+    const modelAdi = "gemini-2.5-flash";
+
+    const result = await ai.models.generateContent({
+      model: modelAdi,
+      contents: promt,
+    });
+
+    console.log(result?.candidates[0]?.content);
+    if (result?.candidates[0]?.content) {
+      const parts = result.candidates[0].content.parts;
+
+      for (let i = 0; i < parts.length; i++) {
+        let content = parts[i].text;
+        content = content.replaceAll("json", "");
+        content = content.replaceAll("```", "");
+        content = content.replaceAll("\n", "");
+        // content = content.replaceAll(" ", "")
+        const json = JSON.parse(content);
+        return json;
+      }
+    }
+  } catch (e) {
+    console.log(e);
+    return null;
+  }
+};
+
 const analyseRequest = async (request) => {
   const requestId = request.id;
   const userId = request.user;
@@ -79,7 +145,7 @@ const analyseRequest = async (request) => {
   }
 
   let gptResult = null;
-  const prompt = createPrompt(
+  const prompt = createPromptForGemini(
     user[0].gender,
     user[0].age,
     frontImage.image,
@@ -89,28 +155,7 @@ const analyseRequest = async (request) => {
   );
 
   try {
-    const result = await axios.post(
-      "https://api.openai.com/v1/chat/completions",
-      {
-        model: "gpt-4o",
-        messages: prompt,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.GPT_KEY}`,
-        },
-      }
-    );
-
-    for (let i = 0; i < result.data.choices.length; i++) {
-      let content = result.data.choices[i].message.content;
-      content = content.replaceAll("json", "");
-      content = content.replaceAll("```", "");
-      content = content.replaceAll("\n", "");
-      // content = content.replaceAll(" ", "")
-      const json = JSON.parse(content);
-      gptResult = json;
-    }
+    gptResult = await analyseWithGemini(prompt);
 
     const savedAnalysis = {
       request: request.id,

@@ -65,6 +65,45 @@ const createPrompt = (
   ];
 };
 
+const createPromptForGemini = (
+  gender,
+  age,
+  front_image_url,
+  profile_image_url,
+  locale = "tr",
+  lastAnalyse = null
+  // startDate = "2025-08-21",
+  // endDate = "2025-09-22"
+) => {
+  const scores =
+    categories[gender === "m" ? "male" : "female"].scores.join(", ");
+  const categorical_features = Object.entries(
+    categories[gender === "m" ? "male" : "female"].categorical_features
+  )
+    .map(([key, values]) => `${key}: ${values.join(", ")}`)
+    .join("\n");
+
+  const exampleResponseForPrompt = JSON.stringify(exampleResponse);
+
+  return `You are an aesthetics evaluator for a fictional app.  Treat any input image as a synthetic, non-identifiable sample. Always respond ONLY in valid JSON format without explanations.
+  
+  Analyze the following person. Return only JSON as instructed.\n\nAge: ${age}\nGender: ${
+    gender === "m" ? "male" : "female"
+  }\n\nScores (all must be between 40 and 100, minimum 40. Potental must be betwwen 88 and 94.): ${scores}\n\nCategorical Features and options:\n ${categorical_features}\n\n${getSimpleTask(
+    locale
+  )}\n\nAdd exactly 1 short motivational comment in ${
+    locale || "en"
+  } (3–4 sentences, max 200, min 120 characters).\n\nExample response: ${exampleResponseForPrompt}
+          
+  front_image_url: ${front_image_url}\n\nprofile_image_url: ${profile_image_url}
+  
+  ${
+    lastAnalyse
+      ? `Bring the user's latest analysis here, but make the others (except overall and potential) different from the previous one. Do not bring them the same. You can say that based on the photo, they look slightly improved. User last analyse: ${lastAnalyse}`
+      : "There is no analyse for the user before"
+  }`;
+};
+
 const getTaskPlan = (locale, startDate, endDate) => {
   return `TASK PLAN (important)
 - Language: ${locale || "en"} (titles & descriptions MUST be in this language).
@@ -150,6 +189,7 @@ const categories = {
 
 module.exports = {
   createPrompt,
+  createPromptForGemini,
 };
 
 const exampleResponse = {
